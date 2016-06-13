@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.streaming.connectors.activemq;
+package org.apache.flink.streaming.connectors.jms;
 
 import javax.jms.Destination;
 import org.apache.flink.streaming.api.functions.sink.RichSinkFunction;
@@ -24,7 +24,7 @@ import org.springframework.jms.JmsException;
 import org.springframework.jms.core.JmsTemplate;
 import org.springframework.util.Assert;
 
-public class JmsTemplateSink<T> extends RichSinkFunction<T>
+public class JmsTemplateSink extends RichSinkFunction<Object>
 {
   private static final long serialVersionUID = 42L;
 
@@ -44,11 +44,11 @@ public class JmsTemplateSink<T> extends RichSinkFunction<T>
   }
 
   @Override
-  public void invoke(final T t) throws Exception
+  public void invoke(final Object object) throws Exception
   {
     try
     {
-      jmsTemplate.convertAndSend(destination, t);
+      jmsTemplate.convertAndSend(destination, object);
     }
     catch (JmsException e)
     {

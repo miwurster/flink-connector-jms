@@ -14,20 +14,18 @@
  * limitations under the License.
  */
 
-package org.apache.flink.streaming.connectors.activemq;
+package org.apache.flink.streaming.connectors.jms;
 
 import javax.jms.Destination;
-import javax.jms.JMSException;
-import javax.jms.Message;
-import javax.jms.TextMessage;
 import org.apache.flink.api.common.functions.StoppableFunction;
 import org.apache.flink.streaming.api.functions.source.RichParallelSourceFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.jms.JmsException;
 import org.springframework.jms.core.JmsTemplate;
 import org.springframework.util.Assert;
 
-public class JmsTemplateSource extends RichParallelSourceFunction<String> implements StoppableFunction
+public class JmsTemplateSource extends RichParallelSourceFunction<Object> implements StoppableFunction
 {
   private static final long serialVersionUID = 42L;
 
@@ -56,18 +54,15 @@ public class JmsTemplateSource extends RichParallelSourceFunction<String> implem
   }
 
   @Override
-  public void run(final SourceContext<String> context) throws Exception
+  public void run(final SourceContext<Object> context) throws Exception
   {
     while (isRunning)
     {
       try
       {
-        final Message message = jmsTemplate.receiveSelected(destination, messageSelector);
-        if (message instanceof TextMessage) context.collect(((TextMessage) message).getText());
-        else logger.info("Received unsupported message type [{}], ignoring message...",
-                         message.getClass().getSimpleName());
+        context.collect(jmsTemplate.receiveSelectedAndConvert(destination, messageSelector));
       }
-      catch (JMSException e)
+      catch (JmsException e)
       {
         logger.error("Error receiving message from [{}]: {}", destination.toString(), e.getLocalizedMessage(), e);
       }

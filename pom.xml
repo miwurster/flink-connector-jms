@@ -11,12 +11,12 @@
   </parent>
 
   <groupId>com.github.miwurster</groupId>
-  <artifactId>flink-connector-activemq</artifactId>
+  <artifactId>flink-connector-jms</artifactId>
   <version>1.0-SNAPSHOT</version>
 
-  <name>Apache Flink Connector for ActiveMQ</name>
-  <description>Apache Flink Streaming Connector for Apache ActiveMQ</description>
-  <url>https://github.com/miwurster/flink-connector-activemq</url>
+  <name>Apache Flink Connector for JMS</name>
+  <description>Apache Flink Streaming Connector for Java's Message Service (JMS)</description>
+  <url>https://github.com/miwurster/flink-connector-jms</url>
 
   <licenses>
     <license>
@@ -33,8 +33,8 @@
   </developers>
 
   <scm>
-    <connection>scm:git:https://github.com/miwurster/flink-connector-activemq.git</connection>
-    <developerConnection>scm:git:https://github.com/miwurster/flink-connector-activemq.git</developerConnection>
+    <connection>scm:git:https://github.com/miwurster/flink-connector-jms.git</connection>
+    <developerConnection>scm:git:https://github.com/miwurster/flink-connector-jms.git</developerConnection>
     <tag>HEAD</tag>
   </scm>
 
@@ -49,12 +49,9 @@
 
   <dependencies>
     <dependency>
-      <groupId>org.apache.activemq</groupId>
-      <artifactId>activemq-broker</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.activemq</groupId>
-      <artifactId>activemq-spring</artifactId>
+      <groupId>javax.jms</groupId>
+      <artifactId>jms</artifactId>
+      <version>1.1</version>
     </dependency>
     <dependency>
       <groupId>org.springframework</groupId>
