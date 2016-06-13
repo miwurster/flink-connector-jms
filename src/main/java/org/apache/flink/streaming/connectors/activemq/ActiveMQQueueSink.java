@@ -20,46 +20,37 @@ import javax.jms.Connection;
 import javax.jms.ConnectionFactory;
 import javax.jms.JMSException;
 import javax.jms.Message;
-import javax.jms.MessageConsumer;
+import javax.jms.MessageProducer;
 import javax.jms.Queue;
 import javax.jms.Session;
-import javax.jms.TextMessage;
-import org.apache.flink.api.common.functions.StoppableFunction;
 import org.apache.flink.configuration.Configuration;
-import org.apache.flink.streaming.api.functions.source.RichParallelSourceFunction;
+import org.apache.flink.streaming.api.functions.sink.RichSinkFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jms.support.JmsUtils;
 import org.springframework.util.Assert;
 
-public class ActiveMQQueueSource extends RichParallelSourceFunction<String> implements StoppableFunction
+public class ActiveMQQueueSink extends RichSinkFunction<String>
 {
   private static final long serialVersionUID = 42L;
 
-  private static Logger logger = LoggerFactory.getLogger(ActiveMQQueueSource.class);
+  private static Logger logger = LoggerFactory.getLogger(ActiveMQQueueSink.class);
 
   private volatile boolean isRunning = true;
 
   private final ConnectionFactory connectionFactory;
   private final Queue destination;
-  private final String messageSelector;
 
   private Connection connection;
 
   // --------------------------------------------------------------------------
 
-  public ActiveMQQueueSource(final ConnectionFactory connectionFactory, final Queue destination)
-  {
-    this(connectionFactory, destination, null);
-  }
-
-  public ActiveMQQueueSource(final ConnectionFactory connectionFactory, final Queue destination, final String messageSelector)
+  public ActiveMQQueueSink(final ConnectionFactory connectionFactory, final Queue destination)
   {
     Assert.notNull(connectionFactory, "ConnectionFactory object must not be null");
     Assert.notNull(destination, "Destination queue object must not be null");
     this.connectionFactory = connectionFactory;
     this.destination = destination;
-    this.messageSelector = messageSelector;
   }
 
   @Override
@@ -75,46 +66,29 @@ public class ActiveMQQueueSource extends RichParallelSourceFunction<String> impl
   }
 
   @Override
-  public void run(final SourceContext<String> context) throws Exception
+  public void invoke(final String value) throws Exception
   {
-    while (isRunning)
+    Session session = null;
+    MessageProducer producer = null;
+    try
     {
-      Session session = null;
-      MessageConsumer consumer = null;
-      try
-      {
-        session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
-
-        if (messageSelector != null) consumer = session.createConsumer(destination, messageSelector);
-        else consumer = session.createConsumer(destination);
-
-        final Message message = consumer.receive();
-        if (message instanceof TextMessage) context.collect(((TextMessage) message).getText());
-        else logger.info("Received unsupported message type [{}], ignoring message...",
-                         message.getClass().getSimpleName());
-      }
-      catch (JMSException e)
-      {
-        logger.error("Error receiving message from [{}]: {}", destination.getQueueName(), e.getLocalizedMessage(), e);
-      }
-      finally
-      {
-        JmsUtils.closeMessageConsumer(consumer);
-        JmsUtils.closeSession(session);
-      }
+      session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
+      producer = session.createProducer(destination);
+      producer.send(destination,
+                    session.createTextMessage(value),
+                    Message.DEFAULT_DELIVERY_MODE,
+                    Message.DEFAULT_PRIORITY,
+                    Message.DEFAULT_TIME_TO_LIVE);
     }
-  }
-
-  @Override
-  public void cancel()
-  {
-    isRunning = false;
-  }
-
-  @Override
-  public void stop()
-  {
-    isRunning = false;
+    catch (JMSException e)
+    {
+      logger.error("Error sending message to [{}]: {}", destination.getQueueName(), e.getLocalizedMessage(), e);
+    }
+    finally
+    {
+      JmsUtils.closeMessageProducer(producer);
+      JmsUtils.closeSession(session);
+    }
   }
 
   @Override
