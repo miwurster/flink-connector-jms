@@ -46,14 +46,14 @@ public class JmsQueueSourceExample
     }
 
     @Override
-    protected String convert(final Message m) throws Exception
+    protected String convert(final Message object) throws Exception
     {
-      if (m instanceof TextMessage)
+      if (object instanceof TextMessage)
       {
-        final TextMessage message = (TextMessage) m;
+        final TextMessage message = (TextMessage) object;
         return message.getText();
       }
-      throw new MessageConversionException("Cannot convert message of type [" + ObjectUtils.nullSafeClassName(m) + "]");
+      throw new MessageConversionException("Cannot convert message of type [" + ObjectUtils.nullSafeClassName(object) + "]");
     }
   }
 }
