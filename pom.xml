@@ -10,7 +10,7 @@
 
   <groupId>com.github.miwurster</groupId>
   <artifactId>flink-connector-jms</artifactId>
-  <version>1.0</version>
+  <version>1.1-SNAPSHOT</version>
 
   <name>Apache Flink Connector for JMS</name>
   <description>Apache Flink Streaming Connector for Java's Message Service (JMS)</description>
@@ -33,7 +33,7 @@
   <scm>
     <connection>scm:git:https://github.com/miwurster/flink-connector-jms.git</connection>
     <developerConnection>scm:git:https://github.com/miwurster/flink-connector-jms.git</developerConnection>
-    <tag>flink-connector-jms-1.0</tag>
+    <tag>HEAD</tag>
   </scm>
 
   <properties>
