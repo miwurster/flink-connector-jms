@@ -28,40 +28,34 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.streaming.api.functions.sink.RichSinkFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.jms.support.JmsUtils;
-import org.springframework.jms.support.converter.MappingJackson2MessageConverter;
-import org.springframework.jms.support.converter.MessageConversionException;
-import org.springframework.jms.support.converter.MessageConverter;
 import org.springframework.util.Assert;
-import org.springframework.util.ObjectUtils;
 
-public class TopicSink extends RichSinkFunction<Object>
+public abstract class JmsTopicSink<T> extends RichSinkFunction<T> implements InitializingBean
 {
   private static final long serialVersionUID = 42L;
 
-  private static Logger logger = LoggerFactory.getLogger(TopicSink.class);
+  private static Logger logger = LoggerFactory.getLogger(JmsTopicSink.class);
 
-  private final Topic destination;
-  private final TopicConnectionFactory connectionFactory;
-  private final MessageConverter messageConverter;
+  private Topic destination;
+  private TopicConnectionFactory connectionFactory;
 
   private TopicConnection connection;
 
   // --------------------------------------------------------------------------
 
-  public TopicSink(final TopicConnectionFactory connectionFactory, final Topic destination)
+  public JmsTopicSink()
   {
-    this(connectionFactory, destination, null);
+
   }
 
-  public TopicSink(final TopicConnectionFactory connectionFactory, final Topic destination, final MessageConverter messageConverter)
+  public JmsTopicSink(final TopicConnectionFactory connectionFactory, final Topic destination)
   {
     Assert.notNull(connectionFactory, "QueueConnectionFactory must not be null");
     Assert.notNull(destination, "Queue must not be null");
     this.connectionFactory = connectionFactory;
     this.destination = destination;
-    if (messageConverter == null) this.messageConverter = new MappingJackson2MessageConverter();
-    else this.messageConverter = messageConverter;
   }
 
   @Override
@@ -77,7 +71,7 @@ public class TopicSink extends RichSinkFunction<Object>
   }
 
   @Override
-  public void invoke(final Object object) throws Exception
+  public void invoke(final T object) throws Exception
   {
     TopicSession session = null;
     TopicPublisher producer = null;
@@ -86,14 +80,10 @@ public class TopicSink extends RichSinkFunction<Object>
       session = connection.createTopicSession(false, Session.AUTO_ACKNOWLEDGE);
       producer = session.createPublisher(destination);
       producer.publish(destination,
-                       messageConverter.toMessage(object, session),
+                       convert(object, session),
                        Message.DEFAULT_DELIVERY_MODE,
                        Message.DEFAULT_PRIORITY,
                        Message.DEFAULT_TIME_TO_LIVE);
-    }
-    catch (MessageConversionException e)
-    {
-      logger.error("Error converting object of type [{}] into a message: {}", ObjectUtils.nullSafeClassName(object), e.getLocalizedMessage(), e);
     }
     catch (JMSException e)
     {
@@ -106,10 +96,29 @@ public class TopicSink extends RichSinkFunction<Object>
     }
   }
 
+  protected abstract Message convert(final T object, final Session session) throws Exception;
+
   @Override
   public void close() throws Exception
   {
     super.close();
     JmsUtils.closeConnection(connection, true);
+  }
+
+  public void setDestination(final Topic destination)
+  {
+    this.destination = destination;
+  }
+
+  public void setConnectionFactory(final TopicConnectionFactory connectionFactory)
+  {
+    this.connectionFactory = connectionFactory;
+  }
+
+  @Override
+  public void afterPropertiesSet() throws Exception
+  {
+    Assert.notNull(destination, "Destination topic must not be null");
+    Assert.notNull(connectionFactory, "TopicConnectionFactory must not be null");
   }
 }

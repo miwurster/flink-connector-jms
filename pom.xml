@@ -45,13 +45,14 @@
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <!-- Dependency Versions -->
     <apache-flink.version>1.0.3</apache-flink.version>
+    <jms-api.version>2.0.1</jms-api.version>
   </properties>
 
   <dependencies>
     <dependency>
       <groupId>javax.jms</groupId>
-      <artifactId>jms</artifactId>
-      <version>1.1</version>
+      <artifactId>javax.jms-api</artifactId>
+      <version>${jms-api.version}</version>
     </dependency>
     <dependency>
       <groupId>org.springframework</groupId>
@@ -80,6 +81,11 @@
       <groupId>org.apache.flink</groupId>
       <artifactId>flink-test-utils_2.10</artifactId>
       <version>${apache-flink.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.activemq</groupId>
+      <artifactId>activemq-client</artifactId>
       <scope>test</scope>
     </dependency>
   </dependencies>

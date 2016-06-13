@@ -28,40 +28,34 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.streaming.api.functions.sink.RichSinkFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.jms.support.JmsUtils;
-import org.springframework.jms.support.converter.MappingJackson2MessageConverter;
-import org.springframework.jms.support.converter.MessageConversionException;
-import org.springframework.jms.support.converter.MessageConverter;
 import org.springframework.util.Assert;
-import org.springframework.util.ObjectUtils;
 
-public class QueueSink extends RichSinkFunction<Object>
+public abstract class JmsQueueSink<T> extends RichSinkFunction<T> implements InitializingBean
 {
   private static final long serialVersionUID = 42L;
 
-  private static Logger logger = LoggerFactory.getLogger(QueueSink.class);
+  private static Logger logger = LoggerFactory.getLogger(JmsQueueSink.class);
 
-  private final Queue destination;
-  private final QueueConnectionFactory connectionFactory;
-  private final MessageConverter messageConverter;
+  private Queue destination;
+  private QueueConnectionFactory connectionFactory;
 
   private QueueConnection connection;
 
   // --------------------------------------------------------------------------
 
-  public QueueSink(final QueueConnectionFactory connectionFactory, final Queue destination)
+  public JmsQueueSink()
   {
-    this(connectionFactory, destination, null);
+
   }
 
-  public QueueSink(final QueueConnectionFactory connectionFactory, final Queue destination, final MessageConverter messageConverter)
+  public JmsQueueSink(final QueueConnectionFactory connectionFactory, final Queue destination)
   {
     Assert.notNull(connectionFactory, "QueueConnectionFactory must not be null");
     Assert.notNull(destination, "Queue must not be null");
     this.connectionFactory = connectionFactory;
     this.destination = destination;
-    if (messageConverter == null) this.messageConverter = new MappingJackson2MessageConverter();
-    else this.messageConverter = messageConverter;
   }
 
   @Override
@@ -77,7 +71,7 @@ public class QueueSink extends RichSinkFunction<Object>
   }
 
   @Override
-  public void invoke(final Object object) throws Exception
+  public void invoke(final T object) throws Exception
   {
     QueueSession session = null;
     QueueSender producer = null;
@@ -86,18 +80,14 @@ public class QueueSink extends RichSinkFunction<Object>
       session = connection.createQueueSession(false, Session.AUTO_ACKNOWLEDGE);
       producer = session.createSender(destination);
       producer.send(destination,
-                    messageConverter.toMessage(object, session),
+                    convert(object, session),
                     Message.DEFAULT_DELIVERY_MODE,
                     Message.DEFAULT_PRIORITY,
                     Message.DEFAULT_TIME_TO_LIVE);
     }
-    catch (MessageConversionException e)
-    {
-      logger.error("Error converting object of type [{}] into a message: {}", ObjectUtils.nullSafeClassName(object), e.getLocalizedMessage(), e);
-    }
     catch (JMSException e)
     {
-      logger.error("Error sending message to [{}]: {}", destination.getQueueName(), e.getLocalizedMessage(), e);
+      logger.error("Error sending message to [{}]: {}", destination.getQueueName(), e.getLocalizedMessage());
     }
     finally
     {
@@ -106,10 +96,29 @@ public class QueueSink extends RichSinkFunction<Object>
     }
   }
 
+  protected abstract Message convert(final T object, final Session session) throws Exception;
+
   @Override
   public void close() throws Exception
   {
     super.close();
     JmsUtils.closeConnection(connection, true);
+  }
+
+  public void setDestination(final Queue destination)
+  {
+    this.destination = destination;
+  }
+
+  public void setConnectionFactory(final QueueConnectionFactory connectionFactory)
+  {
+    this.connectionFactory = connectionFactory;
+  }
+
+  @Override
+  public void afterPropertiesSet() throws Exception
+  {
+    Assert.notNull(destination, "Destination queue must not be null");
+    Assert.notNull(connectionFactory, "QueueConnectionFactory must not be null");
   }
 }

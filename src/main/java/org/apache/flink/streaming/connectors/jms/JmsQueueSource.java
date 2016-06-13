@@ -17,6 +17,7 @@
 package org.apache.flink.streaming.connectors.jms;
 
 import javax.jms.JMSException;
+import javax.jms.Message;
 import javax.jms.Queue;
 import javax.jms.QueueConnection;
 import javax.jms.QueueConnectionFactory;
@@ -28,53 +29,43 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.streaming.api.functions.source.RichParallelSourceFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.jms.support.JmsUtils;
-import org.springframework.jms.support.converter.MessageConverter;
-import org.springframework.jms.support.converter.SimpleMessageConverter;
 import org.springframework.util.Assert;
 
-public class QueueSource extends RichParallelSourceFunction<Object> implements StoppableFunction
+public abstract class JmsQueueSource<T> extends RichParallelSourceFunction<T> implements StoppableFunction, InitializingBean
 {
   private static final long serialVersionUID = 42L;
 
-  private static Logger logger = LoggerFactory.getLogger(QueueSource.class);
+  private static Logger logger = LoggerFactory.getLogger(JmsQueueSource.class);
 
   private volatile boolean isRunning = true;
 
-  private final Queue destination;
-  private final QueueConnectionFactory connectionFactory;
-  private final String messageSelector;
-  private final MessageConverter messageConverter;
+  private Queue destination;
+  private QueueConnectionFactory connectionFactory;
+  private String messageSelector;
 
   private QueueConnection connection;
 
   // --------------------------------------------------------------------------
 
-  public QueueSource(final QueueConnectionFactory connectionFactory, final Queue destination)
+  public JmsQueueSource()
   {
-    this(connectionFactory, destination, null, null);
+
   }
 
-  public QueueSource(final QueueConnectionFactory connectionFactory, final Queue destination, final String messageSelector)
+  public JmsQueueSource(final QueueConnectionFactory connectionFactory, final Queue destination)
   {
-    this(connectionFactory, destination, messageSelector, null);
+    this(connectionFactory, destination, null);
   }
 
-  public QueueSource(final QueueConnectionFactory connectionFactory, final Queue destination, final MessageConverter messageConverter)
-  {
-    this(connectionFactory, destination, null, messageConverter);
-  }
-
-  public QueueSource(final QueueConnectionFactory connectionFactory, final Queue destination,
-                     final String messageSelector, final MessageConverter messageConverter)
+  public JmsQueueSource(final QueueConnectionFactory connectionFactory, final Queue destination, final String messageSelector)
   {
     Assert.notNull(connectionFactory, "QueueConnectionFactory must not be null");
     Assert.notNull(destination, "Queue must not be null");
     this.connectionFactory = connectionFactory;
     this.destination = destination;
     this.messageSelector = messageSelector;
-    if (messageConverter == null) this.messageConverter = new SimpleMessageConverter();
-    else this.messageConverter = messageConverter;
   }
 
   @Override
@@ -90,7 +81,7 @@ public class QueueSource extends RichParallelSourceFunction<Object> implements S
   }
 
   @Override
-  public void run(final SourceContext<Object> context) throws Exception
+  public void run(final SourceContext<T> context) throws Exception
   {
     while (isRunning)
     {
@@ -101,11 +92,11 @@ public class QueueSource extends RichParallelSourceFunction<Object> implements S
         session = connection.createQueueSession(false, Session.AUTO_ACKNOWLEDGE);
         if (messageSelector != null) consumer = session.createReceiver(destination, messageSelector);
         else consumer = session.createReceiver(destination);
-        context.collect(messageConverter.fromMessage(consumer.receive()));
+        context.collect(convert(consumer.receive()));
       }
       catch (JMSException e)
       {
-        logger.error("Error receiving message from [{}]: {}", destination.getQueueName(), e.getLocalizedMessage(), e);
+        logger.error("Error receiving message from [{}]: {}", destination.getQueueName(), e.getLocalizedMessage());
       }
       finally
       {
@@ -114,6 +105,8 @@ public class QueueSource extends RichParallelSourceFunction<Object> implements S
       }
     }
   }
+
+  protected abstract T convert(final Message message) throws Exception;
 
   @Override
   public void cancel()
@@ -132,5 +125,27 @@ public class QueueSource extends RichParallelSourceFunction<Object> implements S
   {
     super.close();
     JmsUtils.closeConnection(connection, true);
+  }
+
+  public void setDestination(final Queue destination)
+  {
+    this.destination = destination;
+  }
+
+  public void setConnectionFactory(final QueueConnectionFactory connectionFactory)
+  {
+    this.connectionFactory = connectionFactory;
+  }
+
+  public void setMessageSelector(final String messageSelector)
+  {
+    this.messageSelector = messageSelector;
+  }
+
+  @Override
+  public void afterPropertiesSet() throws Exception
+  {
+    Assert.notNull(destination, "Destination queue must not be null");
+    Assert.notNull(connectionFactory, "QueueConnectionFactory must not be null");
   }
 }
