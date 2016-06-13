@@ -1,4 +1,4 @@
 
-## ActiveMQ Streaming Connector for Apache Flink
+## Apache Flink Connector for ActiveMQ
 
 **TODO**
