@@ -18,6 +18,7 @@ Apache Flink Connector for JMS
 
 * [`JmsQueueSource`](src/test/java/org/apache/flink/streaming/connectors/jms/JmsQueueSourceExample.java)
 * [`JmsQueueSink`](src/test/java/org/apache/flink/streaming/connectors/jms/JmsQueueSinkExample.java)
+* [`JmsTopicSource`](src/test/java/org/apache/flink/streaming/connectors/jms/JmsTopicSourceExample.java)
 * [`JmsTopicSink`](src/test/java/org/apache/flink/streaming/connectors/jms/JmsTopicSinkExample.java)
 
 ## Building
