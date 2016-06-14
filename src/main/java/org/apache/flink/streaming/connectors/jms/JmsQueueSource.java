@@ -16,6 +16,7 @@
 
 package org.apache.flink.streaming.connectors.jms;
 
+import javax.annotation.Nullable;
 import javax.jms.JMSException;
 import javax.jms.Message;
 import javax.jms.Queue;
@@ -30,6 +31,7 @@ import org.apache.flink.streaming.api.functions.source.RichParallelSourceFunctio
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
+import org.springframework.jms.UncategorizedJmsException;
 import org.springframework.jms.support.JmsUtils;
 import org.springframework.util.Assert;
 
@@ -59,7 +61,7 @@ public abstract class JmsQueueSource<T> extends RichParallelSourceFunction<T> im
     this(connectionFactory, destination, null);
   }
 
-  public JmsQueueSource(final QueueConnectionFactory connectionFactory, final Queue destination, final String messageSelector)
+  public JmsQueueSource(final QueueConnectionFactory connectionFactory, final Queue destination, @Nullable final String messageSelector)
   {
     Assert.notNull(connectionFactory, "QueueConnectionFactory must not be null");
     Assert.notNull(destination, "Queue must not be null");
@@ -77,32 +79,35 @@ public abstract class JmsQueueSource<T> extends RichParallelSourceFunction<T> im
     connection = connectionFactory.createQueueConnection(username, password);
     final String clientId = parameters.getString("jms_client_id", null);
     if (clientId != null) connection.setClientID(clientId);
-    connection.start();
   }
 
   @Override
   public void run(final SourceContext<T> context) throws Exception
   {
-    while (isRunning)
+    QueueSession session = null;
+    QueueReceiver consumer = null;
+
+    try
     {
-      QueueSession session = null;
-      QueueReceiver consumer = null;
-      try
+      session = connection.createQueueSession(false, Session.AUTO_ACKNOWLEDGE);
+      consumer = session.createReceiver(destination, messageSelector);
+
+      connection.start();
+
+      while (isRunning)
       {
-        session = connection.createQueueSession(false, Session.AUTO_ACKNOWLEDGE);
-        if (messageSelector != null) consumer = session.createReceiver(destination, messageSelector);
-        else consumer = session.createReceiver(destination);
         context.collect(convert(consumer.receive()));
       }
-      catch (JMSException e)
-      {
-        logger.error("Error receiving message from [{}]: {}", destination.getQueueName(), e.getLocalizedMessage());
-      }
-      finally
-      {
-        JmsUtils.closeMessageConsumer(consumer);
-        JmsUtils.closeSession(session);
-      }
+    }
+    catch (JMSException e)
+    {
+      logger.error("Error receiving message from [{}]: {}", destination.getQueueName(), e.getLocalizedMessage());
+      throw new UncategorizedJmsException(e);
+    }
+    finally
+    {
+      JmsUtils.closeMessageConsumer(consumer);
+      JmsUtils.closeSession(session);
     }
   }
 

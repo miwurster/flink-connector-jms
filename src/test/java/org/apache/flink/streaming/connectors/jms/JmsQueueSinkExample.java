@@ -39,7 +39,7 @@ public class JmsQueueSinkExample
 
     public JmsQueueSinkImpl()
     {
-      super(new ActiveMQConnectionFactory("failover:tcp://localhost:61617"),
+      super(new ActiveMQConnectionFactory("failover:tcp://192.168.99.100:61617"),
             new ActiveMQQueue("FLINK_QUEUE"));
     }
 

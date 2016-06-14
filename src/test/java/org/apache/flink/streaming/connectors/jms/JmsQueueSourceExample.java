@@ -20,7 +20,6 @@ import javax.jms.Message;
 import javax.jms.TextMessage;
 import org.apache.activemq.ActiveMQConnectionFactory;
 import org.apache.activemq.command.ActiveMQQueue;
-import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.springframework.jms.support.converter.MessageConversionException;
 import org.springframework.util.ObjectUtils;
@@ -30,8 +29,9 @@ public class JmsQueueSourceExample
   public static void main(String[] args) throws Exception
   {
     final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-    final DataStream<String> dataStream = env.addSource(new JmsQueueSourceImpl()).setParallelism(2);
-    dataStream.print();
+    env.addSource(new JmsQueueSourceImpl())
+      .setParallelism(2)
+      .print();
     env.execute();
   }
 
@@ -41,7 +41,7 @@ public class JmsQueueSourceExample
 
     public JmsQueueSourceImpl()
     {
-      super(new ActiveMQConnectionFactory("failover:tcp://localhost:61617"),
+      super(new ActiveMQConnectionFactory("failover:tcp://192.168.99.100:61617"),
             new ActiveMQQueue("FLINK_QUEUE"));
     }
 

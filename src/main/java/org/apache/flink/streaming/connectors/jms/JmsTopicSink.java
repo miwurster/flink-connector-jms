@@ -29,6 +29,7 @@ import org.apache.flink.streaming.api.functions.sink.RichSinkFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
+import org.springframework.jms.UncategorizedJmsException;
 import org.springframework.jms.support.JmsUtils;
 import org.springframework.util.Assert;
 
@@ -42,6 +43,8 @@ public abstract class JmsTopicSink<T> extends RichSinkFunction<T> implements Ini
   private TopicConnectionFactory connectionFactory;
 
   private TopicConnection connection;
+  private TopicSession session;
+  private TopicPublisher producer;
 
   // --------------------------------------------------------------------------
 
@@ -67,32 +70,23 @@ public abstract class JmsTopicSink<T> extends RichSinkFunction<T> implements Ini
     connection = connectionFactory.createTopicConnection(username, password);
     final String clientId = parameters.getString("jms_client_id", null);
     if (clientId != null) connection.setClientID(clientId);
+    session = connection.createTopicSession(false, Session.AUTO_ACKNOWLEDGE);
+    producer = session.createPublisher(destination);
     connection.start();
   }
 
   @Override
   public void invoke(final T object) throws Exception
   {
-    TopicSession session = null;
-    TopicPublisher producer = null;
     try
     {
-      session = connection.createTopicSession(false, Session.AUTO_ACKNOWLEDGE);
-      producer = session.createPublisher(destination);
-      producer.publish(destination,
-                       convert(object, session),
-                       Message.DEFAULT_DELIVERY_MODE,
-                       Message.DEFAULT_PRIORITY,
-                       Message.DEFAULT_TIME_TO_LIVE);
+      producer.publish(destination, convert(object, session),
+                       Message.DEFAULT_DELIVERY_MODE, Message.DEFAULT_PRIORITY, Message.DEFAULT_TIME_TO_LIVE);
     }
     catch (JMSException e)
     {
       logger.error("Error sending message to [{}]: {}", destination.getTopicName(), e.getLocalizedMessage(), e);
-    }
-    finally
-    {
-      JmsUtils.closeMessageProducer(producer);
-      JmsUtils.closeSession(session);
+      throw new UncategorizedJmsException(e);
     }
   }
 
@@ -102,6 +96,8 @@ public abstract class JmsTopicSink<T> extends RichSinkFunction<T> implements Ini
   public void close() throws Exception
   {
     super.close();
+    JmsUtils.closeMessageProducer(producer);
+    JmsUtils.closeSession(session);
     JmsUtils.closeConnection(connection, true);
   }
 

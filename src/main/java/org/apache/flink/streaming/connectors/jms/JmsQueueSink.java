@@ -29,6 +29,7 @@ import org.apache.flink.streaming.api.functions.sink.RichSinkFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.InitializingBean;
+import org.springframework.jms.UncategorizedJmsException;
 import org.springframework.jms.support.JmsUtils;
 import org.springframework.util.Assert;
 
@@ -42,6 +43,8 @@ public abstract class JmsQueueSink<T> extends RichSinkFunction<T> implements Ini
   private QueueConnectionFactory connectionFactory;
 
   private QueueConnection connection;
+  private QueueSession session;
+  private QueueSender producer;
 
   // --------------------------------------------------------------------------
 
@@ -67,32 +70,23 @@ public abstract class JmsQueueSink<T> extends RichSinkFunction<T> implements Ini
     connection = connectionFactory.createQueueConnection(username, password);
     final String clientId = parameters.getString("jms_client_id", null);
     if (clientId != null) connection.setClientID(clientId);
+    session = connection.createQueueSession(false, Session.AUTO_ACKNOWLEDGE);
+    producer = session.createSender(destination);
     connection.start();
   }
 
   @Override
   public void invoke(final T object) throws Exception
   {
-    QueueSession session = null;
-    QueueSender producer = null;
     try
     {
-      session = connection.createQueueSession(false, Session.AUTO_ACKNOWLEDGE);
-      producer = session.createSender(destination);
-      producer.send(destination,
-                    convert(object, session),
-                    Message.DEFAULT_DELIVERY_MODE,
-                    Message.DEFAULT_PRIORITY,
-                    Message.DEFAULT_TIME_TO_LIVE);
+      producer.send(destination, convert(object, session),
+                    Message.DEFAULT_DELIVERY_MODE, Message.DEFAULT_PRIORITY, Message.DEFAULT_TIME_TO_LIVE);
     }
     catch (JMSException e)
     {
       logger.error("Error sending message to [{}]: {}", destination.getQueueName(), e.getLocalizedMessage());
-    }
-    finally
-    {
-      JmsUtils.closeMessageProducer(producer);
-      JmsUtils.closeSession(session);
+      throw new UncategorizedJmsException(e);
     }
   }
 
@@ -102,6 +96,8 @@ public abstract class JmsQueueSink<T> extends RichSinkFunction<T> implements Ini
   public void close() throws Exception
   {
     super.close();
+    JmsUtils.closeMessageProducer(producer);
+    JmsUtils.closeSession(session);
     JmsUtils.closeConnection(connection, true);
   }
 

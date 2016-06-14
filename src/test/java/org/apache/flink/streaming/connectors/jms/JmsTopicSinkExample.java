@@ -39,7 +39,7 @@ public class JmsTopicSinkExample
 
     public JmsTopicSinkImpl()
     {
-      super(new ActiveMQConnectionFactory("failover:tcp://localhost:61617"),
+      super(new ActiveMQConnectionFactory("failover:tcp://192.168.99.100:61617"),
             new ActiveMQTopic("FLINK_TOPIC"));
     }
 
